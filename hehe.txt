@@ -1,0 +1,150 @@
+import React, { useEffect, useState, useContext } from 'react';
+import PropTypes from 'prop-types';
+import { Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, TextField, Checkbox, Box, IconButton } from '@mui/material';
+import { Add, Remove } from '@mui/icons-material';
+import { CartContext } from './CartContext';
+import axios from 'axios';
+
+const Cart = ({ user }) => {
+  const { cartItems, fetchCartItems } = useContext(CartContext);
+  const [selectedItems, setSelectedItems] = useState({});
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    fetchCartItems();
+  }, [fetchCartItems]);
+
+  const calculateTotal = () => {
+    const totalAmount = cartItems.reduce((acc, item) => {
+      if (selectedItems[item.product._id]) {
+        return acc + item.price * item.quantity;
+      }
+      return acc;
+    }, 0);
+    setTotal(totalAmount);
+  };
+
+  useEffect(() => {
+    calculateTotal();
+  }, [selectedItems, cartItems]);
+
+  const handleQuantityChange = (productId, newQuantity) => {
+    if (newQuantity < 1) return; // Đảm bảo số lượng không nhỏ hơn 1
+    axios.put(`http://localhost:5000/api/users/${user._id}/cart`, { productId, quantity: newQuantity })
+      .then(response => {
+        fetchCartItems();
+      })
+      .catch(error => {
+        console.error('There was an error updating the quantity!', error);
+      });
+  };
+
+  const handleRemoveItem = (productId) => {
+    axios.delete(`http://localhost:5000/api/users/${user._id}/cart`, { data: { productId } })
+      .then(response => {
+        fetchCartItems();
+      })
+      .catch(error => {
+        console.error('There was an error removing the item from the cart!', error);
+      });
+  };
+
+  const handleSelectItem = (productId) => {
+    setSelectedItems(prevSelectedItems => ({
+      ...prevSelectedItems,
+      [productId]: !prevSelectedItems[productId]
+    }));
+  };
+
+  const handleSelectAll = () => {
+    const allSelected = cartItems.every(item => selectedItems[item.product._id]);
+    if (allSelected) {
+      setSelectedItems({});
+    } else {
+      const newSelectedItems = {};
+      cartItems.forEach(item => {
+        newSelectedItems[item.product._id] = true;
+      });
+      setSelectedItems(newSelectedItems);
+    }
+  };
+
+  return (
+    <Container>
+      <Typography variant="h4" gutterBottom>
+        Giỏ hàng của bạn
+      </Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  indeterminate={cartItems.some(item => selectedItems[item.product._id]) && !cartItems.every(item => selectedItems[item.product._id])}
+                  checked={cartItems.every(item => selectedItems[item.product._id])}
+                  onChange={handleSelectAll}
+                />
+              </TableCell>
+              <TableCell>Hình ảnh</TableCell>
+              <TableCell>Tên sản phẩm</TableCell>
+              <TableCell>Giá</TableCell>
+              <TableCell>Số lượng</TableCell>
+              <TableCell>Tổng</TableCell>
+              <TableCell>Hành động</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {cartItems.map((item) => (
+              <TableRow key={item.product._id}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={!!selectedItems[item.product._id]}
+                    onChange={() => handleSelectItem(item.product._id)}
+                  />
+                </TableCell>
+                <TableCell><img src={item.product.image} alt={item.product.title} style={{ width: '50px' }} /></TableCell>
+                <TableCell>{item.product.title}</TableCell>
+                <TableCell>{item.price} đ</TableCell>
+                <TableCell>
+                  <Box display="flex" alignItems="center">
+                    <IconButton onClick={() => handleQuantityChange(item.product._id, item.quantity - 1)}>
+                      <Remove />
+                    </IconButton>
+                    <TextField
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleQuantityChange(item.product._id, parseInt(e.target.value, 10))}
+                      onBlur={() => handleQuantityChange(item.product._id, item.quantity)}
+                      style={{ width: '50px', margin: '0 5px' }}
+                    />
+                    <IconButton onClick={() => handleQuantityChange(item.product._id, item.quantity + 1)}>
+                      <Add />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+                <TableCell>{item.price * item.quantity} đ</TableCell>
+                <TableCell>
+                  <Button variant="contained" color="secondary" onClick={() => handleRemoveItem(item.product._id)}>
+                    Xóa
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Typography variant="h6" gutterBottom style={{ marginTop: '20px' }}>
+        Tổng cộng: {total} đ
+      </Typography>
+      <Button variant="contained" color="primary">
+        Thanh toán
+      </Button>
+    </Container>
+  );
+};
+
+Cart.propTypes = {
+  user: PropTypes.object.isRequired,
+};
+
+export default Cart;

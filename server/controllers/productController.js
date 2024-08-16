@@ -86,7 +86,9 @@ const updateProduct = (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate("category");
+    const categoryId = req.query.category;
+    const query = categoryId ? { category: categoryId } : {};
+    const products = await Product.find(query).populate("category");
     res.status(200).json(products);
   } catch (error) {
     res.status(400).json({ message: error.message });
